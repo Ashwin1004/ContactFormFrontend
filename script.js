@@ -1,85 +1,74 @@
-// DOM elements
-const statusEl = document.getElementById("status");
-const feedbackEl = document.getElementById("feedback");
-const form = document.getElementById("contactForm");
-
-// Your backend API endpoint (Render)
-const API_URL = "https://contactform-2-25nd.onrender.com/api/email/send";
-
-// Open IndexedDB
+// IndexedDB setup
 let db;
 const request = indexedDB.open("ContactFormDB", 1);
 
-request.onupgradeneeded = function (event) {
+request.onerror = (event) => {
+  console.error("IndexedDB error:", event.target.errorCode);
+};
+
+request.onsuccess = (event) => {
   db = event.target.result;
-  db.createObjectStore("submissions", { autoIncrement: true });
-  console.log("✅ IndexedDB setup complete");
+  console.log("✅ IndexedDB opened successfully");
 };
 
-request.onsuccess = function (event) {
+request.onupgradeneeded = (event) => {
   db = event.target.result;
-  console.log("✅ IndexedDB ready");
-  if (navigator.onLine) syncSubmissions();
+  if (!db.objectStoreNames.contains("forms")) {
+    db.createObjectStore("forms", { keyPath: "id", autoIncrement: true });
+  }
+  console.log("📦 Object store created");
 };
 
-request.onerror = function (event) {
-  console.error("❌ IndexedDB error:", event.target.errorCode);
-};
+// Save form when offline
+function saveFormOffline(formData) {
+  const tx = db.transaction("forms", "readwrite");
+  const store = tx.objectStore("forms");
+  store.add(formData);
+  console.log("💾 Form saved offline:", formData);
+}
 
-// Update online/offline status
-function updateStatus() {
-  if (navigator.onLine) {
-    statusEl.textContent = "🟢 Online";
-    statusEl.className = "online";
-    syncSubmissions();
-  } else {
-    statusEl.textContent = "🔴 Offline";
-    statusEl.className = "offline";
+// Send form to backend
+async function sendFormOnline(formData) {
+  try {
+    const response = await fetch("https://contactform-2-25nd.onrender.com/api/email/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
+
+    if (response.ok) {
+      console.log("📨 Form sent to backend:", formData);
+      return true;
+    } else {
+      console.error("❌ Failed to send form:", await response.text());
+      return false;
+    }
+  } catch (error) {
+    console.error("⚠️ Error sending form:", error);
+    return false;
   }
 }
-updateStatus();
-window.addEventListener("online", updateStatus);
-window.addEventListener("offline", updateStatus);
 
-// Save submission to IndexedDB
-function saveToIndexedDB(data) {
-  const tx = db.transaction("submissions", "readwrite");
-  tx.objectStore("submissions").add(data);
-  console.log("📩 Saved offline:", data);
-}
+// Send all saved forms when back online
+function sendStoredForms() {
+  const tx = db.transaction("forms", "readwrite");
+  const store = tx.objectStore("forms");
 
-// Sync submissions when back online
-function syncSubmissions() {
-  const tx = db.transaction("submissions", "readwrite");
-  const store = tx.objectStore("submissions");
-  const getAll = store.getAll();
-
-  getAll.onsuccess = async function () {
-    const submissions = getAll.result;
-    if (submissions.length > 0) {
-      console.log("🔄 Syncing submissions:", submissions);
-      for (let data of submissions) {
-        try {
-          const response = await fetch(API_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
-          });
-          if (response.ok) {
-            console.log("✅ Synced:", data);
-            store.clear(); // clear after successful sync
-            feedbackEl.textContent = "✅ Offline submissions synced!";
-          }
-        } catch (err) {
-          console.error("❌ Sync failed:", err);
-        }
+  store.getAll().onsuccess = async (event) => {
+    const forms = event.target.result;
+    for (let form of forms) {
+      const sent = await sendFormOnline(form);
+      if (sent) {
+        store.delete(form.id);
+        console.log("✅ Offline form sent & removed:", form);
       }
     }
   };
 }
 
-// Form submit handler
-form.addEventListener("submit", async function (e) {
+// Handle form submission
+const feedbackEl = document.getElementById("feedback");
+document.getElementById("contactForm").addEventListener("submit", function (e) {
   e.preventDefault();
 
   const formData = {
@@ -90,26 +79,24 @@ form.addEventListener("submit", async function (e) {
   };
 
   if (navigator.onLine) {
-    try {
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        feedbackEl.textContent = "✅ Email sent successfully!";
-        form.reset();
+    sendFormOnline(formData).then((sent) => {
+      if (sent) {
+        feedbackEl.textContent = "✅ Submitted successfully!";
+        feedbackEl.style.color = "green";
       } else {
-        feedbackEl.textContent = "⚠️ Failed to send email. Try again.";
+        saveFormOffline(formData);
+        feedbackEl.textContent = "⚠️ Saved locally, will retry later.";
+        feedbackEl.style.color = "orange";
       }
-    } catch (err) {
-      console.error("❌ Error:", err);
-      feedbackEl.textContent = "⚠️ Error sending email.";
-    }
+    });
   } else {
-    saveToIndexedDB(formData);
-    feedbackEl.textContent = "📩 Saved locally. Will sync when online.";
-    form.reset();
+    saveFormOffline(formData);
+    feedbackEl.textContent = "📩 Saved locally, please come online to send.";
+    feedbackEl.style.color = "red";
   }
+
+  e.target.reset();
 });
+
+// Auto-send stored forms when online again
+window.addEventListener("online", sendStoredForms);
