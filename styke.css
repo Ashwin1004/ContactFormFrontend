@@ -1,6 +1,7 @@
+/* General Page Styling */
 body {
   font-family: Arial, sans-serif;
-  background: linear-gradient(to bottom, #d0e9ff, #f5faff);
+  background: linear-gradient(to bottom, #cfe9ff, #f8fbff);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -9,49 +10,66 @@ body {
   margin: 0;
 }
 
+/* Online/Offline Status Badge */
 .status {
   position: fixed;
-  top: 10px;
-  right: 10px;
-  padding: 6px 12px;
+  top: 12px;
+  right: 12px;
+  padding: 6px 14px;
   border-radius: 20px;
   font-size: 14px;
   font-weight: bold;
   color: white;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+  transition: background 0.3s ease;
 }
 .status.online {
-  background-color: #28a745;
+  background-color: #28a745; /* green */
 }
 .status.offline {
-  background-color: #dc3545;
+  background-color: #dc3545; /* red */
 }
 
+/* Contact Form Container */
 .form-container {
   background: white;
-  padding: 25px;
-  border-radius: 12px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-  width: 350px;
+  padding: 30px 25px;
+  border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+  width: 360px;
   text-align: center;
+  animation: fadeIn 0.6s ease-in-out;
 }
 
 .form-container h2 {
   margin-bottom: 20px;
-  color: #333;
+  color: #004aad;
+  font-size: 22px;
 }
 
+/* Input Fields */
 input, textarea {
   width: 100%;
-  padding: 10px;
-  margin-bottom: 12px;
+  padding: 12px;
+  margin-bottom: 14px;
   border: 1px solid #ccc;
-  border-radius: 6px;
+  border-radius: 8px;
+  font-size: 15px;
+  outline: none;
+  transition: border 0.3s;
+}
+
+input:focus, textarea:focus {
+  border: 1px solid #007bff;
+  box-shadow: 0 0 5px rgba(0,123,255,0.4);
 }
 
 textarea {
   height: 100px;
+  resize: none;
 }
 
+/* Submit Button */
 button {
   width: 100%;
   padding: 12px;
@@ -59,17 +77,32 @@ button {
   border: none;
   color: white;
   font-size: 16px;
-  border-radius: 6px;
+  font-weight: bold;
+  border-radius: 8px;
   cursor: pointer;
-  transition: 0.3s;
+  transition: transform 0.2s ease, background 0.3s ease;
 }
 
 button:hover {
   background: #0056b3;
+  transform: scale(1.03);
 }
 
+button:active {
+  transform: scale(0.97);
+}
+
+/* Feedback Message */
 #feedback {
-  margin-top: 10px;
+  margin-top: 12px;
   font-size: 14px;
   color: #555;
+  font-weight: bold;
+  min-height: 20px;
+}
+
+/* Fade-in Animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
