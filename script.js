@@ -9,6 +9,11 @@ request.onerror = (event) => {
 request.onsuccess = (event) => {
   db = event.target.result;
   console.log("✅ IndexedDB opened successfully");
+
+  // 🔥 IMPORTANT: When DB is ready, check immediately if online and pending forms exist
+  if (navigator.onLine) {
+    sendStoredForms();
+  }
 };
 
 request.onupgradeneeded = (event) => {
@@ -54,11 +59,18 @@ async function sendFormOnline(formData) {
 
 // Send all saved forms when back online
 function sendStoredForms() {
+  if (!db) {
+    console.warn("⚠️ DB not ready yet, delaying sendStoredForms...");
+    setTimeout(sendStoredForms, 1000); // retry in 1s
+    return;
+  }
+
   const tx = db.transaction("forms", "readwrite");
   const store = tx.objectStore("forms");
 
   store.getAll().onsuccess = async (event) => {
     const forms = event.target.result;
+    console.log(`📦 Found ${forms.length} stored forms`);
     for (let form of forms) {
       const sent = await sendFormOnline(form);
       if (sent) {
@@ -102,4 +114,7 @@ document.getElementById("contactForm").addEventListener("submit", function (e) {
 });
 
 // Auto-send stored forms when online again
-window.addEventListener("online", sendStoredForms);
+window.addEventListener("online", () => {
+  console.log("🌐 Back online, trying to send stored forms...");
+  sendStoredForms();
+});
