@@ -30,21 +30,24 @@ function saveFormOffline(formData) {
 // Send form to backend
 async function sendFormOnline(formData) {
   try {
+    console.log("🌍 Sending to backend:", formData);
+
     const response = await fetch("https://contactform-2-25nd.onrender.com/api/email/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(formData),
     });
 
-    if (response.ok) {
-      console.log("📨 Form sent to backend:", formData);
-      return true;
-    } else {
-      console.error("❌ Failed to send form:", await response.text());
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ Backend error:", errorText);
       return false;
     }
+
+    console.log("📨 Form sent successfully:", await response.text());
+    return true;
   } catch (error) {
-    console.error("⚠️ Error sending form:", error);
+    console.error("⚠️ Network/Fetch error:", error);
     return false;
   }
 }
@@ -85,7 +88,7 @@ document.getElementById("contactForm").addEventListener("submit", function (e) {
         feedbackEl.style.color = "green";
       } else {
         saveFormOffline(formData);
-        feedbackEl.textContent = "⚠️ Saved locally, will retry later.";
+        feedbackEl.textContent = "⚠️ Saved locally, backend rejected!";
         feedbackEl.style.color = "orange";
       }
     });
