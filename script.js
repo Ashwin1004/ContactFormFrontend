@@ -1,4 +1,6 @@
+// =======================
 // IndexedDB setup
+// =======================
 let db;
 const request = indexedDB.open("ContactFormDB", 1);
 
@@ -10,7 +12,7 @@ request.onsuccess = (event) => {
   db = event.target.result;
   console.log("✅ IndexedDB opened successfully");
 
-  // 🔥 IMPORTANT: When DB is ready, check immediately if online and pending forms exist
+  // 🔥 Immediately try to send if online
   if (navigator.onLine) {
     sendStoredForms();
   }
@@ -24,7 +26,9 @@ request.onupgradeneeded = (event) => {
   console.log("📦 Object store created");
 };
 
-// Save form when offline
+// =======================
+// Save form offline
+// =======================
 function saveFormOffline(formData) {
   const tx = db.transaction("forms", "readwrite");
   const store = tx.objectStore("forms");
@@ -32,7 +36,9 @@ function saveFormOffline(formData) {
   console.log("💾 Form saved offline:", formData);
 }
 
+// =======================
 // Send form to backend
+// =======================
 async function sendFormOnline(formData) {
   try {
     console.log("🌍 Sending to backend:", formData);
@@ -57,7 +63,9 @@ async function sendFormOnline(formData) {
   }
 }
 
-// Send all saved forms when back online
+// =======================
+// Send all stored forms when back online
+// =======================
 function sendStoredForms() {
   if (!db) {
     console.warn("⚠️ DB not ready yet, delaying sendStoredForms...");
@@ -65,23 +73,32 @@ function sendStoredForms() {
     return;
   }
 
-  const tx = db.transaction("forms", "readwrite");
+  const tx = db.transaction("forms", "readonly");
   const store = tx.objectStore("forms");
 
   store.getAll().onsuccess = async (event) => {
     const forms = event.target.result;
     console.log(`📦 Found ${forms.length} stored forms`);
+
     for (let form of forms) {
       const sent = await sendFormOnline(form);
       if (sent) {
-        store.delete(form.id);
+        // ✅ open new transaction just for delete
+        const deleteTx = db.transaction("forms", "readwrite");
+        deleteTx.objectStore("forms").delete(form.id);
         console.log("✅ Offline form sent & removed:", form);
+
+        // Update UI feedback
+        feedbackEl.textContent = "✅ Offline form sent after reconnect!";
+        feedbackEl.style.color = "green";
       }
     }
   };
 }
 
+// =======================
 // Handle form submission
+// =======================
 const feedbackEl = document.getElementById("feedback");
 document.getElementById("contactForm").addEventListener("submit", function (e) {
   e.preventDefault();
@@ -106,14 +123,16 @@ document.getElementById("contactForm").addEventListener("submit", function (e) {
     });
   } else {
     saveFormOffline(formData);
-    feedbackEl.textContent = "📩 Saved locally, please come online to send.";
+    feedbackEl.textContent = "📩 Saved locally, will auto-send when online.";
     feedbackEl.style.color = "red";
   }
 
   e.target.reset();
 });
 
+// =======================
 // Auto-send stored forms when online again
+// =======================
 window.addEventListener("online", () => {
   console.log("🌐 Back online, trying to send stored forms...");
   sendStoredForms();
